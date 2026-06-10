@@ -1,7 +1,7 @@
 // Shared data + config for all Hour Report pages.
-const DATA = {"teams":[{"group":"Group 1","team":"Team 1","workers":[{"id":1,"name":"Worker 1","role":"Lead"},{"id":2,"name":"Worker 2","role":"Designer"},{"id":3,"name":"Worker 3","role":"Designer"},{"id":4,"name":"Worker 4","role":"Designer"},{"id":5,"name":"Worker 5","role":"Designer"},{"id":6,"name":"Worker 6","role":"Designer"},{"id":7,"name":"Worker 7","role":"Designer"},{"id":8,"name":"Worker 8","role":"Designer"},{"id":9,"name":"Worker 9","role":"Designer"},{"id":10,"name":"Worker 10","role":"Designer"},{"id":11,"name":"Worker 11","role":"Checker"},{"id":12,"name":"Worker 12","role":"Checker"},{"id":13,"name":"Worker 13","role":"Checker"},{"id":14,"name":"Worker 14","role":"Checker"}]},{"group":"Group 1","team":"Team 2","workers":[{"id":15,"name":"Worker 15","role":"Lead"},{"id":16,"name":"Worker 16","role":"Designer"},{"id":17,"name":"Worker 17","role":"Designer"},{"id":18,"name":"Worker 18","role":"Designer"},{"id":19,"name":"Worker 19","role":"Designer"},{"id":20,"name":"Worker 20","role":"Designer"},{"id":21,"name":"Worker 21","role":"Designer"},{"id":22,"name":"Worker 22","role":"Designer"},{"id":23,"name":"Worker 23","role":"Checker"},{"id":24,"name":"Worker 24","role":"Checker"}]},{"group":"Group 1","team":"Team 3","workers":[{"id":25,"name":"Worker 25","role":"Lead"},{"id":26,"name":"Worker 26","role":"Support"},{"id":27,"name":"Worker 27","role":"Checker"},{"id":28,"name":"Worker 28","role":"Support"},{"id":29,"name":"Worker 29","role":"Engineer"}]},{"group":"Group 1","team":"Team 4","workers":[{"id":30,"name":"Worker 30","role":"Specialist"}]}],"tasks":["订单设计","订单校对","订单沟通","专项订单支持","Key user类支持","部门内部支持","跨部门支持","会议/培训","加班","休假"]};
-const TASK_EN = ["Order design","Order proofreading","Order communication","Special order support","Key-user support","Internal dept. support","Cross-dept. support","Meeting / training","Overtime","Leave"];
-const LEAVE_CATS = ["Annual leave","Sick leave","Maternity/paternity/parental leave","Comp off","Overtime"];
+let DATA = {"teams":[{"group":"Group 1","team":"Team 1","workers":[{"id":1,"name":"Worker 1","role":"Lead"},{"id":2,"name":"Worker 2","role":"Designer"},{"id":3,"name":"Worker 3","role":"Designer"},{"id":4,"name":"Worker 4","role":"Designer"},{"id":5,"name":"Worker 5","role":"Designer"},{"id":6,"name":"Worker 6","role":"Designer"},{"id":7,"name":"Worker 7","role":"Designer"},{"id":8,"name":"Worker 8","role":"Designer"},{"id":9,"name":"Worker 9","role":"Designer"},{"id":10,"name":"Worker 10","role":"Designer"},{"id":11,"name":"Worker 11","role":"Checker"},{"id":12,"name":"Worker 12","role":"Checker"},{"id":13,"name":"Worker 13","role":"Checker"},{"id":14,"name":"Worker 14","role":"Checker"}]},{"group":"Group 1","team":"Team 2","workers":[{"id":15,"name":"Worker 15","role":"Lead"},{"id":16,"name":"Worker 16","role":"Designer"},{"id":17,"name":"Worker 17","role":"Designer"},{"id":18,"name":"Worker 18","role":"Designer"},{"id":19,"name":"Worker 19","role":"Designer"},{"id":20,"name":"Worker 20","role":"Designer"},{"id":21,"name":"Worker 21","role":"Designer"},{"id":22,"name":"Worker 22","role":"Designer"},{"id":23,"name":"Worker 23","role":"Checker"},{"id":24,"name":"Worker 24","role":"Checker"}]},{"group":"Group 1","team":"Team 3","workers":[{"id":25,"name":"Worker 25","role":"Lead"},{"id":26,"name":"Worker 26","role":"Support"},{"id":27,"name":"Worker 27","role":"Checker"},{"id":28,"name":"Worker 28","role":"Support"},{"id":29,"name":"Worker 29","role":"Engineer"}]},{"group":"Group 1","team":"Team 4","workers":[{"id":30,"name":"Worker 30","role":"Specialist"}]}],"tasks":["订单设计","订单校对","订单沟通","专项订单支持","Key user类支持","部门内部支持","跨部门支持","会议/培训","加班"]};
+let TASK_EN = ["Order design","Order proofreading","Order communication","Special order support","Key-user support","Internal dept. support","Cross-dept. support","Meeting / training","Overtime"];
+const LEAVE_CATS = ["Annual leave","Sick leave","Maternity/paternity/parental leave","Comp off"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DOW = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
@@ -53,3 +53,39 @@ const firebaseConfig = {
   messagingSenderId: "202754768533",
   appId: "1:202754768533:web:e1be7837c941d1c169259c"
 };
+
+// ---- Dynamic structure: teams / workers / tasks (synced across pages & devices) ----
+// DATA.teams / DATA.tasks / TASK_EN above are the built-in defaults. At runtime they
+// can be overridden by a saved structure (localStorage now, Firebase `structure` node
+// for cross-device sync) so added workers/teams/tasks appear on all three pages.
+const STRUCT_KEY = 'hr_structure';
+function structSnapshot(){ return { teams: JSON.parse(JSON.stringify(DATA.teams)), tasks: [...DATA.tasks], tasksEn: [...TASK_EN] }; }
+function applyStructure(s){
+  if(!s || typeof s!=='object') return false;
+  if(Array.isArray(s.teams))   DATA.teams = s.teams;
+  if(Array.isArray(s.tasks))   DATA.tasks = s.tasks;
+  if(Array.isArray(s.tasksEn)) TASK_EN    = s.tasksEn;
+  return true;
+}
+function loadStructureLocal(){ try{ return applyStructure(JSON.parse(localStorage.getItem(STRUCT_KEY))); }catch(e){ return false; } }
+function saveStructureLocal(){ try{ localStorage.setItem(STRUCT_KEY, JSON.stringify(structSnapshot())); }catch(e){} }
+function nextWorkerId(){ let m=0; DATA.teams.forEach(t=>(t.workers||[]).forEach(w=>{ if(+w.id>m) m=+w.id; })); return m+1; }
+function addTask(zh, en){ zh=(zh||'').trim(); if(!zh) return false; DATA.tasks.push(zh); TASK_EN.push((en||'').trim()||zh); return true; }
+function addTeam(group, team){ group=(group||'').trim(); team=(team||'').trim(); if(!group||!team) return false; DATA.teams.push({group, team, workers:[]}); return true; }
+function addWorker(teamIdx, name, role){ name=(name||'').trim(); const t=DATA.teams[teamIdx]; if(!name||!t) return false; (t.workers=t.workers||[]).push({ id: nextWorkerId(), name, role:(role||'').trim()||'—' }); return true; }
+// Firebase helpers (db may be null — all guard internally).
+function pushStructure(db){ if(db){ try{ db.ref('structure').set(structSnapshot()).catch(()=>{}); }catch(e){} } }
+function fetchStructure(db, cb){
+  if(!db){ cb&&cb(); return; }
+  db.ref('structure').once('value').then(s=>{ const v=s.val(); if(v){ applyStructure(v); saveStructureLocal(); } cb&&cb(); }).catch(()=>{ cb&&cb(); });
+}
+function watchStructure(db, onChange){
+  if(!db) return;
+  db.ref('structure').on('value', s=>{
+    const v=s.val();
+    if(v){ applyStructure(v); saveStructureLocal(); onChange&&onChange(); }
+    else { pushStructure(db); } // seed cloud from current (default) structure on first run
+  }, ()=>{});
+}
+// Apply any structure already saved on this device, before the pages render.
+loadStructureLocal();
